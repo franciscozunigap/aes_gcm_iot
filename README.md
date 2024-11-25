@@ -4,12 +4,6 @@ Este proyecto implementa el algoritmo de cifrado AES-GCM, cumpliendo con los est
 
 ---
 
-## **Autores**
-- **Nombre**: [Tu Nombre]
-- **Correo Electrónico**: [tuemail@example.com]
-- **Curso**: Proyecto Final de Criptografía
-
-
 
 ## **Introducción**
 
