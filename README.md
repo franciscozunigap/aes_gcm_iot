@@ -136,19 +136,3 @@ INFO: Validación exitosa: El texto descifrado coincide con el original.
    - Esta implementación puede integrarse en sistemas IoT para proteger la comunicación entre dispositivos.
 
 ---
-
-## **Criterios de Evaluación**
-### **Innovación (60%)**
-- La implementación sigue los estándares del NIST y demuestra cómo aplicar AES-GCM en entornos IoT.
-
-### **Pruebas y Resultados (20%)**
-- Las pruebas muestran tiempos de cifrado y descifrado para diferentes tamaños de datos.
-- Se incluyen tablas con resultados detallados y análisis.
-
-### **Documentación y Presentación (20%)**
-- Este archivo README complementa el reporte formal en LaTeX.
-- La presentación del proyecto destaca la seguridad y eficiencia de la solución.
-
----
-
-
