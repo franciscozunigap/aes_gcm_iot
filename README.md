@@ -4,6 +4,16 @@ Este proyecto implementa el algoritmo de cifrado AES-GCM, cumpliendo con los est
 
 ---
 
+analisis del algoritmo gcm, como funciona, por que es bueno, 
+
+metricas
+
+   - tamaño de clave    
+   - tiempo
+   - gasto energetico
+
+contexto, por que es bueno, era cuantica?
+
 
 ## **Introducción**
 
