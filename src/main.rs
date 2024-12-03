@@ -6,6 +6,8 @@ use sha2::Sha256;                      // Para HKDF
 use rand::RngCore;                     // Para generar números aleatorios
 use rand::rngs::OsRng;                 // Generador de números aleatorios seguro
 use std::time::Instant;                // Para medir tiempos de ejecución
+use std::fs::File;                     // Para guardar resultados
+use std::io::Write;                    // Para escribir en archivos
 use log::{info, error};                // Logs para auditoría y monitoreo
 
 fn main() {
@@ -13,79 +15,78 @@ fn main() {
     env_logger::Builder::from_default_env()
         .filter_level(log::LevelFilter::Info)
         .init();
-    
-    // También podemos agregar algunos println! para ver la información directamente
+
     println!("Iniciando programa de cifrado AES-GCM");
 
-    // Generar clave maestra y salt
-    let mut master_key = [0u8; 32]; // Clave maestra de 256 bits
-    let mut salt = [0u8; 16];       // Salt de 128 bits
-    OsRng.fill_bytes(&mut master_key);
+    // Generar salt
+    let mut salt = [0u8; 16]; // Salt de 128 bits
     OsRng.fill_bytes(&mut salt);
-    info!("Clave maestra y salt generados correctamente.");
+    info!("Salt generado correctamente.");
 
-    // Derivar la clave
-    let key = derive_key(&master_key, &salt);
-    info!("Clave derivada correctamente: {:?}.", key);
+    // Configuración de tamaños de clave y datos
+    let key_sizes = [16, 24, 32]; // Claves de 128, 192 y 256 bits
+    let sizes = [1024, 102_400, 1_048_576, 5_242_880, 10_485_760, 52_428_800]; // 1 KB, 100 KB, 1 MB, 5 MB, 10 MB, 50 MB
+    let iterations = 5;
 
-    // Datos asociados (constantes para las pruebas)
-    let associated_data = b"datos asociados";
+    // Crear archivo para guardar resultados
+    let mut file = File::create("resultados.csv").unwrap();
+    writeln!(file, "Clave (bits),Tamaño de Datos (bytes),Promedio Cifrado (µs),Promedio Descifrado (µs)").unwrap();
 
-    // Tamaños de datos para las pruebas
-    let sizes = [1024, 10_240, 102_400]; // 1 KB, 10 KB, 100 KB
+    for &key_size in &key_sizes {
+        println!("\nPruebas con clave de {} bits", key_size * 8);
 
-    for size in &sizes {
-        println!("\nPrueba con tamaño de texto plano: {} bytes", size);
-        info!("Iniciando pruebas con tamaño de texto plano: {} bytes.", size);
+        let mut master_key = vec![0u8; key_size];
+        OsRng.fill_bytes(&mut master_key);
 
-        // Generar texto plano de tamaño `size`
-        let plaintext = vec![0u8; *size];
+        let key = derive_key(&master_key, &salt);
 
-        // Medir tiempo de cifrado
-        let start_encrypt = Instant::now();
-        let (nonce, ciphertext) = match encrypt(&key, &plaintext, associated_data) {
-            Ok(result) => result,
-            Err(e) => {
-                error!("Error durante el cifrado: {}", e);
-                continue;
+        for &size in &sizes {
+            println!("\nPrueba con tamaño de texto plano: {} bytes", size);
+
+            let plaintext = vec![0u8; size];
+            let associated_data = b"datos asociados";
+
+            let mut total_encrypt_time = 0;
+            let mut total_decrypt_time = 0;
+
+            for _ in 0..iterations {
+                // Medir tiempo de cifrado
+                let start_encrypt = Instant::now();
+                let (nonce, ciphertext) = encrypt(&key, &plaintext, associated_data).unwrap();
+                total_encrypt_time += start_encrypt.elapsed().as_micros();
+
+                // Medir tiempo de descifrado
+                let start_decrypt = Instant::now();
+                let decrypted_text = decrypt(&key, &nonce, &ciphertext, associated_data).unwrap();
+                total_decrypt_time += start_decrypt.elapsed().as_micros();
+
+                // Validar que el descifrado sea correcto
+                if plaintext != decrypted_text {
+                    error!("Validación fallida: El texto descifrado no coincide con el original.");
+                    break;
+                }
             }
-        };
-        let duration_encrypt = start_encrypt.elapsed();
-        info!(
-            "Cifrado completado en {:?}. Nonce utilizado: {:?}",
-            duration_encrypt, nonce
-        );
 
-        println!("Tiempo de cifrado: {:?}", duration_encrypt);
+            // Calcular promedios
+            let avg_encrypt_time = total_encrypt_time / iterations;
+            let avg_decrypt_time = total_decrypt_time / iterations;
 
-        // Medir tiempo de descifrado
-        let start_decrypt = Instant::now();
-        let decrypted_text = match decrypt(&key, &nonce, &ciphertext, associated_data) {
-            Ok(result) => result,
-            Err(e) => {
-                error!("Error durante el descifrado: {}", e);
-                continue;
-            }
-        };
-        let duration_decrypt = start_decrypt.elapsed();
-        info!(
-            "Descifrado completado en {:?}. Primeros 32 bytes del descifrado: {:?}",
-            duration_decrypt,
-            &decrypted_text[..32]
-        );
+            println!("Promedio de tiempo de cifrado: {} µs", avg_encrypt_time);
+            println!("Promedio de tiempo de descifrado: {} µs", avg_decrypt_time);
 
-        println!("Tiempo de descifrado: {:?}", duration_decrypt);
-
-        // Verificar que el descifrado sea correcto
-        if plaintext == decrypted_text {
-            info!("Validación exitosa: El texto descifrado coincide con el original.");
-        } else {
-            error!("Validación fallida: El texto descifrado no coincide con el original.");
+            // Guardar resultados en el archivo
+            writeln!(
+                file,
+                "{},{},{},{}",
+                key_size * 8,
+                size,
+                avg_encrypt_time,
+                avg_decrypt_time
+            ).unwrap();
         }
-
-        // Línea en blanco para separar casos
-        println!("--------------------------------------------");
     }
+
+    println!("Resultados guardados en resultados.csv");
 }
 
 /// Función para derivar una clave usando HKDF
